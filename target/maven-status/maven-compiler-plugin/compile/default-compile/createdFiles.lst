@@ -1,0 +1,11 @@
+com\placement\platform\repository\RecruiterRepository.class
+com\placement\platform\repository\UserRepository.class
+com\placement\platform\entity\User.class
+com\placement\platform\repository\JobRepository.class
+com\placement\platform\repository\InterviewRepository.class
+com\placement\platform\repository\NotificationRepository.class
+com\placement\platform\repository\PlacementDriveRepository.class
+com\placement\platform\entity\User$UserBuilder.class
+com\placement\platform\repository\StudentRepository.class
+com\placement\platform\repository\CompanyRepository.class
+com\placement\platform\repository\ApplicationRepository.class
