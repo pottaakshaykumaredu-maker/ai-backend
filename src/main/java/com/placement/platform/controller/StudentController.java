@@ -53,26 +53,32 @@ public class StudentController {
     public ResponseEntity<?> getProfile(
             @RequestParam(required = false) Long userId) {
 
-        if (userId == null) {
-            // Fallback: try finding the first available student or return an empty 404
-            return studentRepository.findAll().stream().findFirst()
-                    .map(ResponseEntity::ok)
-                    .orElse(ResponseEntity.notFound().build());
+        if (userId != null) {
+            // 1. Try finding existing student by userId
+            Student student = studentRepository.findByUserId(userId).orElse(null);
+            if (student != null) {
+                return ResponseEntity.ok(student);
+            }
+
+            // 2. If not found, provision a new Student record immediately
+            Student newStudent = new Student();
+            newStudent.setUserId(userId);
+            newStudent.setCgpa(0.0);
+            
+            // Attach user entity if available
+            userRepository.findById(userId).ifPresent(newStudent::setUser);
+
+            return ResponseEntity.ok(studentRepository.save(newStudent));
         }
 
-        return studentRepository.findByUserId(userId)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> {
-                    // If user exists but has no profile yet, return a blank template instead of failing with 400
-                    return userRepository.findById(userId)
-                            .map(user -> {
-                                Student newStudent = new Student();
-                                newStudent.setUser(user);
-                                newStudent.setUserId(user.getId());
-                                return ResponseEntity.ok(studentRepository.save(newStudent));
-                            })
-                            .orElse(ResponseEntity.notFound().build());
-                });
+        // Fallback when no userId is passed: find any student or create a default one
+        Student fallback = studentRepository.findAll().stream().findFirst().orElseGet(() -> {
+            Student s = new Student();
+            s.setCgpa(0.0);
+            return studentRepository.save(s);
+        });
+
+        return ResponseEntity.ok(fallback);
     }
 
     @PutMapping("/profile")
@@ -88,7 +94,6 @@ public class StudentController {
         }
 
         if (targetStudent == null) {
-            // Auto-create or save if not yet existing
             targetStudent = updatedStudent;
         } else {
             targetStudent.setPhone(updatedStudent.getPhone());
@@ -147,24 +152,21 @@ public class StudentController {
             if (userId != null) {
                 student = studentRepository.findByUserId(userId).orElse(null);
                 if (student == null) {
-                    // Automatically provision a student entity for this user if one doesn't exist
-                    User user = userRepository.findById(userId).orElse(null);
                     student = new Student();
-                    student.setUser(user);
                     student.setUserId(userId);
+                    student.setCgpa(0.0);
+                    userRepository.findById(userId).ifPresent(student::setUser);
                     student = studentRepository.save(student);
                 }
             } else {
                 student = studentRepository.findAll()
                         .stream()
                         .findFirst()
-                        .orElse(null);
-            }
-
-            if (student == null) {
-                return ResponseEntity.badRequest().body(
-                        Map.of("message", "Student profile not found.")
-                );
+                        .orElseGet(() -> {
+                            Student s = new Student();
+                            s.setCgpa(0.0);
+                            return studentRepository.save(s);
+                        });
             }
 
             Files.createDirectories(resumeDirectory);
@@ -195,7 +197,6 @@ public class StudentController {
             }
 
             student.setResumeFileName(originalFileName);
-            // Use relative path so it functions both locally and on Railway production
             student.setResumeUrl("/api/students/resume/file/" + storedFileName);
             student.setResumeUploadedAt(LocalDateTime.now());
             student.setResumeText(resumeText);
