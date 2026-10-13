@@ -17,6 +17,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -37,6 +38,10 @@ public class Student {
     @OneToOne
     @JoinColumn(name = "user_id", referencedColumnName = "id")
     private User user;
+
+    // Direct getter/setter for userId to support easy JSON serialization and API lookups
+    @Column(name = "user_id_ref")
+    private Long userId;
 
     private String phone;
 
@@ -84,10 +89,20 @@ public class Student {
     @Column(columnDefinition = "TEXT")
     private String resumeAnalysisJson;
 
+    @JsonProperty("userId")
+    public Long getResolvedUserId() {
+        if (userId != null) return userId;
+        if (user != null) return user.getId();
+        return null;
+    }
+
     @PrePersist
     protected void onCreate() {
         if (skills == null) {
             skills = new ArrayList<>();
+        }
+        if (userId == null && user != null) {
+            userId = user.getId();
         }
     }
 }
