@@ -54,24 +54,26 @@ public class StudentController {
             @RequestParam(required = false) Long userId) {
 
         if (userId != null) {
-            // 1. Try finding existing student by userId
-            Student student = studentRepository.findByUserId(userId).orElse(null);
-            if (student != null) {
-                return ResponseEntity.ok(student);
+            // 1. Try finding existing profile by userId
+            Student existing = studentRepository.findByUserId(userId).orElse(null);
+            if (existing != null) {
+                return ResponseEntity.ok(existing);
             }
 
-            // 2. If not found, provision a new Student record immediately
+            // 2. If not found, create a new profile immediately (never return 404)
             Student newStudent = new Student();
             newStudent.setUserId(userId);
             newStudent.setCgpa(0.0);
-            
-            // Attach user entity if available
-            userRepository.findById(userId).ifPresent(newStudent::setUser);
+
+            User user = userRepository.findById(userId).orElse(null);
+            if (user != null) {
+                newStudent.setUser(user);
+            }
 
             return ResponseEntity.ok(studentRepository.save(newStudent));
         }
 
-        // Fallback when no userId is passed: find any student or create a default one
+        // Fallback if userId is not provided: return the first student or create a default one
         Student fallback = studentRepository.findAll().stream().findFirst().orElseGet(() -> {
             Student s = new Student();
             s.setCgpa(0.0);
@@ -147,6 +149,7 @@ public class StudentController {
                 );
             }
 
+            // Guarantee a student record exists
             Student student = null;
 
             if (userId != null) {
@@ -159,14 +162,11 @@ public class StudentController {
                     student = studentRepository.save(student);
                 }
             } else {
-                student = studentRepository.findAll()
-                        .stream()
-                        .findFirst()
-                        .orElseGet(() -> {
-                            Student s = new Student();
-                            s.setCgpa(0.0);
-                            return studentRepository.save(s);
-                        });
+                student = studentRepository.findAll().stream().findFirst().orElseGet(() -> {
+                    Student s = new Student();
+                    s.setCgpa(0.0);
+                    return studentRepository.save(s);
+                });
             }
 
             Files.createDirectories(resumeDirectory);
